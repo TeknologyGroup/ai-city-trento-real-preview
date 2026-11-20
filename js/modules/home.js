@@ -1,0 +1,60 @@
+'use strict';
+(() => {
+  const app = window.AICity;
+  const { node, append, button, actions, page, field, announce } = app.ui;
+  app.navigation.registerRoute('intro', () => {
+    const city = app.cities.active;
+    const main = page('Scopri la città con naturalezza', 'AI CITY · ' + city.name);
+    main.classList.add('home-page');
+    const hero = node('section', undefined, 'hero');
+    const title = main.querySelector('h1');
+    const eyebrow = main.querySelector('.eyebrow');
+    append(hero, eyebrow, title, node('p', city.introduction, 'lead'));
+    const landscape = node('div', undefined, 'landscape');
+    landscape.setAttribute('role', 'img'); landscape.setAttribute('aria-label', city.cover.label);
+    append(landscape, node('span', undefined, 'landscape-sun'), node('span', undefined, 'landscape-ridge'), node('span', undefined, 'landscape-village'));
+    append(hero, landscape, node('p', 'Paesaggio astratto · nessuna fotografia reale', 'art-caption'));
+    const search = node('form', undefined, 'home-search');
+    search.setAttribute('role', 'search');search.setAttribute('aria-label', 'Cerca nel catalogo dimostrativo');
+    const input = node('input'); input.type = 'search';input.maxLength = 180;input.placeholder = 'Cerca un negozio o una bottega…';input.value = app.state.filters.query;
+    input.enterKeyHint = 'search';
+    field(search, 'home-query', 'Cerca una bottega DEMO', input, 'Questa ricerca riguarda le botteghe fittizie. Per i luoghi DEMO usa la categoria dedicata; eventi non disponibili.');
+    const submit = node('button', 'Cerca', 'primary');submit.type = 'submit';search.append(submit);
+    search.addEventListener('submit', event => {
+      event.preventDefault();app.state.filters.query = input.value;app.state.filters.category = '';app.navigation.go('catalog');
+    });
+    hero.append(search);main.append(hero);
+    actions(main, button('Apri Life Planner', () => app.navigation.go('planner'), true), button('City Map · Trento', () => app.navigation.go('places')));
+    const categories = node('section', undefined, 'home-categories');categories.setAttribute('aria-labelledby', 'categories-title');
+    const categoriesTitle = node('h2', 'Come vuoi esplorare?', 'sr-only');categoriesTitle.id = 'categories-title';categories.append(categoriesTitle);
+    const grid = node('div', undefined, 'category-grid');
+    city.sections.forEach(section => {
+      const tile = button('', () => { app.state.filters.query='';app.state.filters.category='';app.navigation.go(section.id === 'places' ? 'places' : 'catalog'); });
+      tile.className = 'category-tile';
+      const icon = node('span', undefined, 'category-icon icon-' + section.icon);icon.setAttribute('aria-hidden', 'true');
+      append(tile, icon, node('span', section.label, 'category-name'), node('span', section.available ? 'Catalogo demo' : 'Non disponibile', 'category-status'));
+      tile.disabled = !section.available;grid.append(tile);
+    });
+    categories.append(grid);main.append(categories);
+    const featured = node('section', undefined, 'featured');
+    const heading = node('div', undefined, 'section-heading');append(heading, node('h2', 'In evidenza a ' + city.name), button('Vedi tutte →', () => app.navigation.go('catalog')));featured.append(heading);
+    const cards = node('div', undefined, 'featured-grid');
+    const records = app.services.catalog.search('', '').records.slice(0, 2);
+    if (!app.state.valid) cards.append(node('p', 'Il catalogo dimostrativo non è disponibile. Prova a ripristinare la demo.', 'error-panel'));
+    else if (!records.length) cards.append(node('p', 'Nessuna scheda pubblicata. Puoi ripristinare la demo per tornare ai dati iniziali.', 'empty-state'));
+    records.forEach((record, index) => {
+      const card = node('article', undefined, 'featured-card');
+      const art = node('div', undefined, 'merchant-art art-' + (index % 2));art.setAttribute('aria-hidden', 'true');
+      append(art, node('span', record.category + ' · DEMO', 'art-tag'), node('span', 'Illustrazione dimostrativa', 'art-note'));
+      const body = node('div', undefined, 'featured-body');append(body, node('h3', record.name), node('p', record.description));
+      actions(body, button('Scopri la scheda', () => { app.state.filters.selectedId=record.id;app.navigation.go('profile', {id:record.id}); }, true));
+      append(card, art, body);cards.append(card);
+    });
+    featured.append(cards);main.append(featured);
+    const notice = node('section', undefined, 'scenario-panel');append(notice, node('h2', 'Uno scenario dimostrativo'), node('p', 'Schede e offerte sono fittizie. La cartografia OpenStreetMap è reale e separata dai luoghi DEMO senza coordinate; verifiche e contatti commerciali sono simulati. Nessuna bandiera o immagine ufficiale è rappresentata.'));main.append(notice);
+    const manage = button('Gestione demo →', () => app.navigation.go('editorial'));manage.classList.add('management-link');main.append(manage);
+    main.append(node('p', 'Simulazione editoriale senza autenticazione. Le modifiche restano solo nella pagina.', 'management-note'));
+    title.focus();
+    announce('Homepage di ' + city.name + '. Catalogo dimostrativo con attività inventate.');
+  });
+})();

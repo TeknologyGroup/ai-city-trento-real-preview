@@ -1,0 +1,11 @@
+/* Palette di progetto: non identifica una bandiera ufficiale. Fallback neutro alla radice. */
+:root, :root[data-city="neutral"] {
+  --cream: #f6f4ee; --paper: #fffdfa; --ink: #233d35; --muted: #59665d;
+  --wine: #70666a; --wine-soft: #d8ced0; --sage: #ccd4c8; --gold: #b39b76;
+  --line: #d7d9d0; --focus: #813f25;
+}
+:root[data-city="trento"] {
+  --cream: #fbf5eb; --paper: #fffcf7; --ink: #173f35; --muted: #67543e;
+  --wine: #854c56; --wine-soft: #d8b5b2; --sage: #c3c9ad; --gold: #b58d57;
+  --line: #ded1bc; --focus: #943f23;
+}
