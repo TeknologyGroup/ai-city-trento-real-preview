@@ -3,17 +3,21 @@
   const app = window.AICity, { node, append, button, actions, page, field, announce } = app.ui;
   const nav = app.navigation, data = app.content;
   const filters = { query: '', category: '', selectedId: null, district: '' };
-  function places() {
-    const main = page('Luoghi da esplorare', 'City Map · Trento e luoghi DEMO');
-    main.append(app.cityMap.geographic());
+  function places({query: incomingQuery, category: incomingCategory} = {}) {
+    if(typeof incomingQuery==='string')filters.query=incomingQuery.slice(0,180);
+    if(typeof incomingCategory==='string')filters.category=incomingCategory;
+    const main = page('Luoghi reali di Trento', 'Esplora Trento · fonte Comune di Trento');
+    const geographic=app.cityMap.explorer(record=>{filters.selectedId=record.id;});main.append(geographic.element);geographic.mount();
     actions(main, button('Apri Life Planner', () => nav.go('planner')));
-    main.append(node('h2', 'Luoghi da fonte aperta e luoghi DEMO'));
+    main.append(node('h2', 'Elenco accessibile dei luoghi'));
     main.append(node('p', 'Dati importati e DEMO sono distinti. Lo schema mostra solo luoghi inventati; i luoghi reali hanno coordinate dalla fonte e nessun sopralluogo.', 'lead'));
-    const form = node('form', undefined, 'filters');form.setAttribute('role', 'search');form.setAttribute('aria-label', 'Ricerca luoghi dimostrativi');
+    const form = node('form', undefined, 'filters');form.setAttribute('role', 'search');form.setAttribute('aria-label', 'Ricerca luoghi di Trento');
     const searchBox = node('div'), categoryBox = node('div');append(form, searchBox, categoryBox);
     const query = field(searchBox, 'places-query', 'Nome o categoria del luogo', node('input'));query.type = 'search';query.maxLength = 180;query.value = filters.query;
     const category = field(categoryBox, 'places-category', 'Categoria del luogo', node('select'));
     ['', ...data.allCategories].forEach(value => { const option = node('option', value || 'Tutte le categorie');option.value = value;category.append(option); });category.value = filters.category;
+    const mode=field(form,'places-mode','Tipo di contenuti',node('select'));
+    [['real','Luoghi reali'],['demo','Luoghi DEMO'],['all','Reali e DEMO distinti']].forEach(([v,t])=>{const o=node('option',t);o.value=v;mode.append(o);});mode.value=filters.mode||'real';mode.addEventListener('change',render);
     const district=field(form,'places-district','Circoscrizione (solo dati reali)',node('select'));
     ['',...data.districts].forEach(value=>{const o=node('option',value||'Tutte le circoscrizioni');o.value=value;district.append(o);});district.value=filters.district;district.disabled=true;
     district.addEventListener('change',render);
@@ -23,6 +27,8 @@
     function render() {
       filters.query = query.value;filters.category = category.value;filters.district=district.value;results.replaceChildren();
       const response = data.searchAll(query.value, category.value,district.value);
+      filters.mode=mode.value;response.records=response.records.filter(r=>mode.value==='all'||(mode.value==='real'?!!r.metadata:!r.metadata));
+      geographic.update(response.records);
       if (response.status !== 'OK') {count.textContent = 'Ricerca non disponibile';results.append(node('p', 'Dati o filtri non validi. Cancella i filtri per riprovare.', 'error-panel'));return;}
       count.textContent = response.records.length + ' luoghi · fonte aperta e DEMO distinti';announce(count.textContent);
       if (!response.records.length) {append(results, node('h2', 'Nessun luogo trovato'), node('p', 'Prova un altro nome o rimuovi i filtri.'));actions(results, button('Rimuovi filtri luoghi', clear));return;}
@@ -33,9 +39,10 @@
         const card = node('article', undefined, 'card');card.id = 'place-card-' + record.id;if (filters.selectedId === record.id) card.classList.add('selected');
         const title = node('h2', record.name);title.tabIndex = -1;
         append(card, title, node('p', record.category + (record.metadata ? ' · Fonte aperta' : ' · DEMO'), 'badge'), node('p', record.description || 'Dato importato dal Comune di Trento · CC BY 4.0'));
+        if(record.metadata)actions(card,button('Mostra sulla mappa: '+record.name,()=>geographic.select(record.id)));
         actions(card, button((record.metadata ? 'Apri luogo reale: ' : 'Apri luogo: ') + record.name, () => {filters.selectedId = record.id;nav.go(record.metadata ? 'real-place' : 'place', {id: record.id});}, true));list.append(card);cards.set(record.id, card);
       });map.update(response.records.filter(r=>!r.metadata));if (response.records.some(p => p.id === filters.selectedId)) map.select(filters.selectedId);
-      append(layout, list, map.element);results.append(layout);
+      append(layout, list);if(response.records.some(r=>!r.metadata))layout.append(map.element);results.append(layout);
     }
     query.addEventListener('input', render);category.addEventListener('change', render);form.addEventListener('submit', event => {event.preventDefault();render();});render();
   }
@@ -60,7 +67,7 @@
   }
   function add(kind, id) {try {data.planner.add(kind, id);nav.go('planner', {message: 'Tappa aggiunta al piano locale.'});} catch (error) {nav.go('planner', {message: error.message});}}
   function planner({ message = '' } = {}) {
-    const main = page('Il tuo piano dimostrativo', 'Life Planner · logica deterministica');
+    const main = page('Pianifica una visita', 'Life Planner · logica deterministica');
     append(main, node('p', 'Organizza fino a 12 tappe: luoghi importati e contenuti DEMO distinti. Gli orari sono scelti da te: nessun calcolo di tragitto, durata, apertura o disponibilità. Nessuna AI generativa.', 'lead'), node('p', 'Stato solo nella memoria della pagina. Nessun salvataggio permanente o dato personale; il ricaricamento cancella il piano.'));
     if (message) {const feedback = node('p', message, 'feedback');feedback.setAttribute('role', 'status');main.append(feedback);announce(message);}
     const planned = data.planner.all();
@@ -100,5 +107,5 @@
   nav.registerRoute('places', places);nav.registerRoute('place', place);nav.registerRoute('planner', planner);nav.registerRoute('twin', twin);
   nav.registerModule({id:'places', label:'Luoghi DEMO',entry:'places',version:'0.4.0-mvp'});
   nav.registerModule({id:'life-planner',label:'Planner locale deterministico',entry:'planner',version:'0.4.0-mvp'});
-  app.discovery = Object.freeze({add,reset: () => {filters.query='';filters.category='';filters.selectedId=null;filters.district='';data.planner.reset();}});
+  app.discovery = Object.freeze({showReal:(query='',category='')=>{filters.mode='real';filters.district='';nav.go('places',{query,category});},add,reset: () => {filters.query='';filters.category='';filters.selectedId=null;filters.district='';filters.mode='real';data.planner.reset();}});
 })();

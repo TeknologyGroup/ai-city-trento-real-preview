@@ -22,7 +22,7 @@
     main.classList.remove('home-page');
     const heading = node('h1', title); heading.tabIndex = -1;
     append(main, node('p', section || 'Trento · demo', 'eyebrow'), heading);
-    document.title = title + ' — AI CITY Demo 0.4.0';
+    document.title = title + ' — AI CITY Trento · sperimentale';
     heading.focus();
     window.scrollTo(0, 0);
     return main;
